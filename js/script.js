@@ -5,6 +5,7 @@ const global = {
     term: "",
     page: 1,
     totalPages: 1,
+    totalResults: 0,
   },
   api: {
     apiKey: "79c5db1ca55c3a57ce5599557b72ec10",
@@ -33,7 +34,7 @@ async function searchAPIdata() {
   showSpinner();
 
   const response = await fetch(
-    `${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en_US&query=${global.search.term}`,
+    `${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en_US&query=${global.search.term}&page=${global.search.page}`,
   );
 
   const data = await response.json();
@@ -263,6 +264,11 @@ async function displayBackgroundImage(type, backdropPath) {
 }
 
 function displaySearchResults(results) {
+  // clear previous results
+  document.querySelector("#search-results").innerHTML = "";
+  document.querySelector("#search-results-heading").innerHTML = "";
+  document.querySelector("#pagination").innerHTML = "";
+
   const type = global.search.type;
 
   results.forEach((item) => {
@@ -283,7 +289,7 @@ function displaySearchResults(results) {
               class="card-img-top"
               alt=${type === "movie" ? item.title : item.name}
             />`
-          }   
+          }    
          
           </a>
           <div class="card-body">
@@ -294,7 +300,48 @@ function displaySearchResults(results) {
           </div>
         `;
 
+    document.querySelector("#search-results-heading").innerHTML = `
+          <h2>${results.length} of ${global.search.totalResults} Results for ${global.search.term}</h2>
+    `;
+
     document.querySelector("#search-results").appendChild(div);
+  });
+
+  displayPagination();
+}
+
+function displayPagination() {
+  const div = document.createElement("div");
+  div.classList.add("pagination");
+
+  div.innerHTML = ` <button class="btn btn-primary" id="prev">Prev</button>
+        <button class="btn btn-primary" id="next">Next</button>
+        <div class="page-counter">Page ${global.search.page} of ${global.search.totalPages}</div>`;
+
+  document.querySelector("#pagination").appendChild(div);
+
+  // disable prev button if on first page
+  if (global.search.page === 1) {
+    document.querySelector("#prev").disabled = true;
+  }
+
+  // disable next button if on last page
+  if (global.search.page === global.search.totalPages) {
+    document.querySelector("#next").disabled = true;
+  }
+
+  // Next Page
+  document.querySelector("#next").addEventListener("click", async () => {
+    global.search.page++;
+    const { results, total_pages } = await searchAPIdata();
+    displaySearchResults(results);
+  });
+
+  // Previous page
+  document.querySelector("#prev").addEventListener("click", async () => {
+    global.search.page--;
+    const { results, total_pages } = await searchAPIdata();
+    displaySearchResults(results);
   });
 }
 
@@ -305,7 +352,11 @@ async function search() {
   global.search.term = params.get("search-term");
 
   if (global.search.term != null && global.search.term != "") {
-    const { results, page, total_pages } = await searchAPIdata();
+    const { results, page, total_pages, total_results } = await searchAPIdata();
+
+    global.search.page = page;
+    global.search.totalPages = total_pages;
+    global.search.totalResults = total_results;
 
     if (results.length === 0) {
       showAlert("No results found");
